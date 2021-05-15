@@ -38,7 +38,7 @@ func (c *Coordinator) Example(args *ExampleArgs, reply *ExampleReply) error {
 	return nil
 }
 
-//DispatchTask dispatches a task from the ReadyQueue, and put it into the WIPTable
+// DispatchTask dispatches a task from the ReadyQueue, and put it into the WIPTable
 func (c *Coordinator) DispatchTask(args *TaskArgs, reply *TaskReply) error {
 	var t *Task
 	select {
@@ -79,7 +79,7 @@ func (c *Coordinator) DispatchTask(args *TaskArgs, reply *TaskReply) error {
 // ReceiveResult harvests the finished task from workers
 func (c *Coordinator) ReceiveResult(args *ResultArgs, reply *ResultReply) error {
 	t := args.Task
-	// check if done successfully
+	// check if done successfully; if not, reset it.
 	if !args.Success || t.IsTimeout() || t.LifeCycle != FINISHED {
 		log.Logger.WithFields(logrus.Fields{
 			"ID":        t.ID,
@@ -131,7 +131,7 @@ func (c *Coordinator) server() {
 	//l, e := net.Listen("tcp", ":1234")
 	sockname := coordinatorSock()
 	if err := os.Remove(sockname); err != nil {
-		log.Logger.Warn(err) // TRAP 1
+		log.Logger.Warn(err) // TRAP
 	}
 	l, e := net.Listen("unix", sockname)
 	if e != nil {
@@ -201,6 +201,7 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 	return &c
 }
 
+// GenerateReduceTasks generates Reduce tasks
 func (c *Coordinator) GenerateReduceTasks() {
 	// spin until all Map tasks have been done
 	for atomic.LoadUint32(&c.finishedMapTasks) != uint32(c.nMap) {

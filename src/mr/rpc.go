@@ -18,7 +18,8 @@ import (
 )
 
 //
-// Task definition
+// Task definitions
+//
 const (
 	READY = iota // LifeCycle of a task
 	WIP
@@ -41,6 +42,7 @@ type Task struct {
 	IReduce    int       // IReduce is the id of the input file for Reduce task
 }
 
+// NewTask constructs a task. The argument `filename` should be ignored when `taskType` = REDUCE.
 func NewTask(taskType int, filename string, NMap int, IMap int, NReduce int, IReduce int) *Task {
 	logger := log.Logger.WithFields(logrus.Fields{
 		"FileName": filename,
@@ -78,10 +80,12 @@ type TaskManager struct {
 	WIPTable   sync.Map   // Table maps Task.ID to the correspond Task whose LifeCycle = WIP
 }
 
+// NewTaskManager constructs a TaskManager
 func NewTaskManager(cap int) *TaskManager {
 	return &TaskManager{Capacity: cap, ReadyQueue: make(chan *Task, cap)}
 }
 
+// ResetOverdueTask detects overdue tasks among WIPTable and move them to ReadyQueue
 func (m *TaskManager) ResetOverdueTask() {
 	m.WIPTable.Range(func(key, value interface{}) bool {
 		if t := value.(*Task); t.IsTimeout() {
@@ -101,6 +105,7 @@ func (m *TaskManager) ResetOverdueTask() {
 	})
 }
 
+// GetWIPTableLen implements a Len() method of a sync.Map instance
 func (m *TaskManager) GetWIPTableLen() (lenWIPTable int) {
 	m.WIPTable.Range(func(key, value interface{}) bool {
 		lenWIPTable++
@@ -124,19 +129,23 @@ type ExampleReply struct {
 
 // Add your RPC definitions here.
 
+// TaskArgs is the request argument of the RPC Coordinator.DispatchTask
 type TaskArgs struct {
 }
 
+// TaskReply is the response argument of the RPC Coordinator.DispatchTask
 type TaskReply struct {
 	Task
 	Complete uint32
 }
 
+// ResultArgs is the request argument of the RPC Coordinator.ReceiveResult
 type ResultArgs struct {
 	Task
 	Success bool
 }
 
+// ResultReply is the response argument of the RPC Coordinator.ReceiveResult
 type ResultReply struct {
 }
 

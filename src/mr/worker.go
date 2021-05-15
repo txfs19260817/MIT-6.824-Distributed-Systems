@@ -69,24 +69,27 @@ func CallExample() {
 	fmt.Printf("reply.Y %v\n", reply.Y)
 }
 
-// CallDispatchTask asks Coordinator for a task
-// TODO: might (not) need to add a return value to indicate to exit
+// CallDispatchTask asks Coordinator for a task, and works on it
 func CallDispatchTask(mapf func(string, string) []KeyValue, reducef func(string, []string) string) {
 	for {
 		reply := TaskReply{}
+		// exit if the worker fails to connect the coordinator
 		if !call("Coordinator.DispatchTask", &TaskArgs{}, &reply) {
 			log.Logger.Warn("a worker could not connect to the coordinator")
 			break
 		}
-		if reply.Complete == 1 { // the job has been completed, so worker exits
+		// the job has been completed, so worker exits
+		if reply.Complete == 1 {
 			log.Logger.Info("a worker exits since the job is completed")
 			break
 		}
-		if reflect.DeepEqual(reply.Task, Task{}) { // no task received, but the job is in-progress
+		// no task received, but the job is in-progress
+		if reflect.DeepEqual(reply.Task, Task{}) {
 			log.Logger.Info("a worker has suspended for 1s due to no task received")
 			time.Sleep(1 * time.Second)
 			continue
 		}
+		// verify the received task's LifeCycle
 		if reply.LifeCycle != WIP {
 			log.Logger.Fatalf("the assigned task's LifeCycle is %d, but `WIP` is expected", reply.LifeCycle)
 		}
@@ -97,6 +100,7 @@ func CallDispatchTask(mapf func(string, string) []KeyValue, reducef func(string,
 			"AssignedAt": reply.AssignedAt,
 		}).Info("a worker was assigned a task")
 
+		// do the task
 		resultArgs := ResultArgs{Success: true}
 		switch reply.TaskType {
 		case MAP:
@@ -133,6 +137,7 @@ func CallDispatchTask(mapf func(string, string) []KeyValue, reducef func(string,
 	}
 }
 
+// CallReceiveResult reports the task result to the Coordinator
 func CallReceiveResult(args *ResultArgs) {
 	if !call("Coordinator.ReceiveResult", args, &ResultReply{}) {
 		log.Logger.Fatalf("a worker is failing on reporting result to the coordinator")
@@ -162,6 +167,7 @@ func call(rpcname string, args interface{}, reply interface{}) bool {
 	return true
 }
 
+// DoMapTask processes input files using `mapf`
 func DoMapTask(t *Task, mapf func(string, string) []KeyValue) error {
 	// setup output files
 	filename, outFiles := t.FileName, make([]*os.File, t.NReduce)
@@ -209,6 +215,7 @@ func DoMapTask(t *Task, mapf func(string, string) []KeyValue) error {
 	return nil
 }
 
+// DoReduceTask processes intermediate files using `reducef`
 func DoReduceTask(t *Task, reducef func(string, []string) string) error {
 	// read intermediate files
 	var intermediate []KeyValue
